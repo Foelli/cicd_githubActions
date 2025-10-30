@@ -1,5 +1,6 @@
 # .github/workflows/ci.yml
 name: CI
+
 on:
   push:
     branches: [main]
@@ -7,6 +8,11 @@ on:
   pull_request:
     branches: [main]
     paths: ["pom.xml", "src/**"]
+
+# Add at workflow top-level:
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   hello:
@@ -16,16 +22,26 @@ jobs:
 
   build-test:
     needs: hello
-    runs-on: ubuntu-latest
+    name: "Test (${{ matrix.os }} / Java ${{ matrix.java }})"
+    strategy:
+      fail-fast: true
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        java: [17, 21]
+        exclude:
+          - os: windows-latest
+            java: 21 # example: skip this combo
+    runs-on: ${{ matrix.os }}
+
     steps:
-      - name: Cloning Repo, rock'n roll
+      - name: Check out repository
         uses: actions/checkout@v4
 
       - name: Set up Java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: "17"
+          java-version: ${{ matrix.java }}
           cache: maven
 
       - name: Build & Test
@@ -35,5 +51,5 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: surefire-reports
+          name: surefire-${{ matrix.os }}-java${{ matrix.java }}
           path: target/surefire-reports
